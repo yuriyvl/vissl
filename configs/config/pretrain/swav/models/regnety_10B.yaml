@@ -1,0 +1,70 @@
+# @package _global_
+config:
+  MODEL:
+    TRUNK:
+      NAME: regnet
+      TRUNK_PARAMS:
+        # REGNET:  ## 1464.50 - MODEL1
+        #   depth: 32
+        #   w_0: 456
+        #   w_a: 160.83
+        #   w_m: 2.52
+        #   group_width: 264
+        # REGNET:  ## 5496.7697 - MODEL2
+        #   depth: 27
+        #   w_0: 1280
+        #   w_a: 460.83
+        #   w_m: 2.52
+        #   group_width: 744
+        # REGNET:  ## 8513.301 - MODEL3
+        #   depth: 27
+        #   w_0: 1600
+        #   w_a: 560.83
+        #   w_m: 2.52
+        #   group_width: 926
+        # REGNET:  ## 8859.8083 - MODEL7
+        #   depth: 27
+        #   w_0: 1680
+        #   w_a: 590.83
+        #   w_m: 2.52
+        #   group_width: 972
+        # REGNET:  ## 12130.3875 - MODEL8
+        #   depth: 27
+        #   w_0: 1800
+        #   w_a: 660.83
+        #   w_m: 2.52
+        #   group_width: 1042
+        # REGNET:  ## 17535.7785 - MODEL4
+        #   depth: 32
+        #   w_0: 1600
+        #   w_a: 560.83
+        #   w_m: 2.52
+        #   group_width: 926
+        # REGNET:  ## 11845.0038 - MODEL5
+        #   depth: 29
+        #   w_0: 1600
+        #   w_a: 560.83
+        #   w_m: 2.52
+        #   group_width: 926
+        # REGNET:  ## 13039.9273 - MODEL6
+        #   depth: 29
+        #   w_0: 1680
+        #   w_a: 590.83
+        #   w_m: 2.52
+        #   group_width: 972
+        REGNET:  ## 9557.0455 - MODEL9
+          depth: 27
+          w_0: 1744
+          w_a: 620.83
+          w_m: 2.52
+          group_width: 1010
+    HEAD:
+      PARAMS: [
+        # ["swav_head", {"dims": [7392, 7392, 128], "use_bn": False, "num_clusters": [3000]}],  # MODEL1
+        # ["swav_head", {"dims": [20832, 20832, 128], "use_bn": False, "num_clusters": [3000]}],  # MODEL2
+        # ["swav_head", {"dims": [25928, 25928, 128], "use_bn": False, "num_clusters": [3000]}],  # MODEL3
+        # ["swav_head", {"dims": [25928, 8192, 128], "use_bn": False, "num_clusters": [3000]}],  # MODEL4 and MODEL5
+        # ["swav_head", {"dims": [27216, 8192, 128], "use_bn": False, "num_clusters": [3000]}],  # MODEL6 and MODEL7
+        # ["swav_head", {"dims": [29176, 8192, 128], "use_bn": False, "num_clusters": [3000]}],  # MODEL8
+        ["swav_head", {"dims": [28280, 8192, 128], "use_bn": False, "num_clusters": [3000]}],  # MODEL8
+      ]
