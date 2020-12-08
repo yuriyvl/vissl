@@ -1,7 +1,7 @@
 {
     "imagenet1k_folder": {
-        "train": ["<img_path>", "<lbl_path>"],
-        "val": ["<img_path>", "<lbl_path>"]
+        "train": ["/scratch/imagenet_full_size/061417/train", "/scratch/imagenet_full_size/061417/train"],
+        "val": ["/scratch/imagenet_full_size/061417/val", "/scratch/imagenet_full_size/061417/val"]
     },
     "places205_folder": {
         "train": ["<img_path>", "<lbl_path>"],

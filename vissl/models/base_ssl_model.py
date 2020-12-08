@@ -1,5 +1,6 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
 
+import contextlib
 import copy
 import logging
 
@@ -14,6 +15,7 @@ from vissl.models.model_helpers import (
 from vissl.models.trunks import get_model_trunk
 from vissl.models.trunks.feature_extractor import FeatureExtractorModel
 from vissl.utils.env import get_machine_local_and_dist_rank
+from fairscale.nn.pipe import Pipe
 
 
 @register_model("multi_input_output_model")
@@ -51,6 +53,21 @@ class BaseSSLMultiInputOutputModel(ClassyModel):
         self._output_feature_names = get_trunk_output_feature_names(self.model_config)
         self._get_heads()
         self._setup_multi_input_head_mapping()
+
+        # XXX: min
+        assert len(self.heads) == 1
+        modules = []
+        for k in self.trunk._feature_blocks.keys():
+            if isinstance(self.trunk._feature_blocks[k], nn.Sequential):
+                for m in self.trunk._feature_blocks[k]:
+                    assert not isinstance(m, nn.Sequential)
+                    modules.append(m)
+            else:
+                modules.append(self.trunk._feature_blocks[k])
+        modules.append(self.heads[0])
+        assert len(modules) == 23, len(modules)
+        self.seq_model = nn.Sequential(*modules)
+        self.seq_model = Pipe(self.seq_model, [11, 12], devices=[0,1], chunks=20)  # u-batch=160/20=8
 
     def multi_input_with_head_mapping_forward(self, batch):
         """
@@ -98,6 +115,23 @@ class BaseSSLMultiInputOutputModel(ClassyModel):
         """
         Simply run the trunk and heads forward on the input tensor.
         """
+        if True:
+            ctx = torch.no_grad()
+            ctx = contextlib.nullcontext()
+            with ctx:
+                # XXX: Move to right device
+                batch = batch.to(self.seq_model.devices[0])
+                ret = self.seq_model(batch)
+                # XXX: Move to the device where loss is run
+                ret = ret.to(self.seq_model.devices[0])
+                # Manually compared this output with the output below so make sure
+                # out nn.Sequential is the same as the other one.
+                # sample output:
+                # LEN = 11
+                # -570.3384399414062
+                # -570.3384399414062
+                #print(ret.sum().item())
+                return ret
         assert isinstance(batch, torch.Tensor)
         feats = self.trunk(batch, feature_names)
         # if we are interested in evaluating the trunk only, we return the output of the trunk
@@ -109,7 +143,11 @@ class BaseSSLMultiInputOutputModel(ClassyModel):
             ]
         ):
             return feats
-        return self.heads_forward(feats, heads)
+        ret = self.heads_forward(feats, heads)
+        assert len(ret) == 1
+        print(ret[0].sum().item())
+        assert 0
+        return ret
 
     def heads_forward(self, feats, heads):
         # Example case: training linear classifiers on various layers
