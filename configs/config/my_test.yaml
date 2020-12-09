@@ -12,6 +12,7 @@ config:
       LABEL_SOURCES: [disk_folder]
       DATASET_NAMES: [imagenet1k_folder]
       BATCHSIZE_PER_REPLICA: 160
+      DROP_LAST: True
       TRANSFORMS:
         - name: RandomResizedCrop
           size: 224
