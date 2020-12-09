@@ -516,7 +516,8 @@ class SelfSupervisionTask(ClassificationTask):
         self.num_train_phases = num_train_phases
 
         self.base_loss = self.base_loss.to(self.device)
-        if self.device.type == "cuda":
+        # XXX (min): no need if pipe is enabled.
+        if False and self.device.type == "cuda":
             self.base_model = copy_model_to_gpu(self.base_model)
 
         # initialize the pytorch optimizer now since the model has been moved to

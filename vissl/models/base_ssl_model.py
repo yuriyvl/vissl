@@ -16,6 +16,7 @@ from vissl.models.trunks import get_model_trunk
 from vissl.models.trunks.feature_extractor import FeatureExtractorModel
 from vissl.utils.env import get_machine_local_and_dist_rank
 from fairscale.nn.pipe import Pipe
+from fairscale.nn.pipe.balance import balance_by_time, balance_by_size
 
 
 @register_model("multi_input_output_model")
@@ -58,21 +59,41 @@ class BaseSSLMultiInputOutputModel(ClassyModel):
         assert len(self.heads) == 1
         modules = []
         for k in self.trunk._feature_blocks.keys():
-            if isinstance(self.trunk._feature_blocks[k], nn.Sequential):
-                for m in self.trunk._feature_blocks[k]:
-                    assert not isinstance(m, nn.Sequential)
-                    modules.append(m)
-            else:
-                modules.append(self.trunk._feature_blocks[k])
+            def flatten_nested_sequential(m):
+                ret = []
+                for x in m:
+                    if isinstance(x, nn.Sequential):
+                        ret += flatten_nested_sequential(x)
+                    else:
+                        ret.append(x)
+                return ret
+            modules += flatten_nested_sequential([self.trunk._feature_blocks[k]])
         modules.append(self.heads[0])
-        assert len(modules) == 23, len(modules)
+        # 23 for resnet50, 33 for model9
+        assert len(modules) in [23, 33], len(modules)
         self.seq_model = nn.Sequential(*modules)
         assert self.local_rank in [0, 1]
         devices = [
             [0, 2],
             [1, 3]
         ][self.local_rank]
-        self.seq_model = Pipe(self.seq_model, [11, 12], devices=devices, chunks=20)  # u-batch=160/20=8
+        devices = list(range(8))
+        splits = [13, 3, 3, 3, 3, 3, 2, 3]
+        if False:
+            # use cpu since the model is big
+            # needed to hack classy_vision so that regnet's inplace relu is disabled
+            # use small batch to avoid too long of a runtime
+            #   crashed after 6 blocks with two sample inputs
+            splits = balance_by_time(8, self.seq_model, torch.rand(2, 3, 224, 224), timeout=10.0, device="cpu")
+        if False:
+            #splits = balance_by_size(8, self.seq_model, torch.rand(1, 3, 224, 224))
+            # this is the result:
+            splits = [11, 3, 2, 2, 2, 4, 4, 5]
+        assert sum(splits) == len(modules), sum(splits)
+        self.seq_model = Pipe(self.seq_model, splits, devices=devices, chunks=8)
+        if True:
+            mem_in_mb = [torch.cuda.max_memory_allocated(d)//1024//1024 for d in devices]
+            print("XXX", mem_in_mb)
 
     def multi_input_with_head_mapping_forward(self, batch):
         """
@@ -128,7 +149,10 @@ class BaseSSLMultiInputOutputModel(ClassyModel):
                 batch = batch.to(self.seq_model.devices[0])
                 ret = self.seq_model(batch)
                 # XXX: Move to the device where loss is run
-                ret = ret.to(self.seq_model.devices[0])
+                if type(ret) is tuple:
+                    ret = [r.to(self.seq_model.devices[0]) for r in ret]
+                else:
+                    ret = ret.to(self.seq_model.devices[0])
                 # Manually compared this output with the output below so make sure
                 # out nn.Sequential is the same as the other one.
                 # sample output:
