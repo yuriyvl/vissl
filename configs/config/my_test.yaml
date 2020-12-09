@@ -83,8 +83,9 @@ config:
   DISTRIBUTED:
     BACKEND: nccl
     NUM_NODES: 1
-    NUM_PROC_PER_NODE: 1 # 1 GPU
+    NUM_PROC_PER_NODE: 2 # 1 GPU
     RUN_ID: auto
+    MANUAL_GRADIENT_REDUCTION: True
   MACHINE:
     DEVICE: gpu
   VERBOSE: True

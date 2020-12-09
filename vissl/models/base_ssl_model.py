@@ -67,7 +67,12 @@ class BaseSSLMultiInputOutputModel(ClassyModel):
         modules.append(self.heads[0])
         assert len(modules) == 23, len(modules)
         self.seq_model = nn.Sequential(*modules)
-        self.seq_model = Pipe(self.seq_model, [11, 12], devices=[0,1], chunks=20)  # u-batch=160/20=8
+        assert self.local_rank in [0, 1]
+        devices = [
+            [0, 2],
+            [1, 3]
+        ][self.local_rank]
+        self.seq_model = Pipe(self.seq_model, [11, 12], devices=devices, chunks=20)  # u-batch=160/20=8
 
     def multi_input_with_head_mapping_forward(self, batch):
         """
