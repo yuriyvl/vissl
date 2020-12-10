@@ -90,9 +90,12 @@ class BaseSSLMultiInputOutputModel(ClassyModel):
             # this is the result:
             splits = [11, 3, 2, 2, 2, 4, 4, 5]
         # Tune again by-hand on 32gb GPUs, the memory usage per-layer is not linear w/ params.
-        splits = [11, 4, 3, 3, 3, 3, 2, 4]
+        splits = [11, 4, 3, 3, 3, 3, 2, 4] # this results in GPU0 has lot more memory than GPU1, u-bs = 2 to start
+        splits = [8, 5, 4, 4, 3, 3, 2, 4] # this is more even in the front, can push u-bs to 20, ck=8
+        splits = [8, 5, 4, 4, 4, 4, 1, 3] # this is more even in the front and back, can push u-bs to 16, ck=16, but gpu7 is very lightly used.
         assert sum(splits) == len(modules), sum(splits)
-        self.seq_model = Pipe(self.seq_model, splits, devices=devices, chunks=8)
+        print("P-SPLITS", splits)
+        self.seq_model = Pipe(self.seq_model, splits, devices=devices, chunks=48)
         if True:
             mem_in_mb = [torch.cuda.max_memory_allocated(d)//1024//1024 for d in devices]
             print("XXX", mem_in_mb)
