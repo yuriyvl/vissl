@@ -89,6 +89,8 @@ class BaseSSLMultiInputOutputModel(ClassyModel):
             #splits = balance_by_size(8, self.seq_model, torch.rand(1, 3, 224, 224))
             # this is the result:
             splits = [11, 3, 2, 2, 2, 4, 4, 5]
+        # Tune again by-hand on 32gb GPUs, the memory usage per-layer is not linear w/ params.
+        splits = [11, 4, 3, 3, 3, 3, 2, 4]
         assert sum(splits) == len(modules), sum(splits)
         self.seq_model = Pipe(self.seq_model, splits, devices=devices, chunks=8)
         if True:

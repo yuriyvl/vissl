@@ -108,10 +108,13 @@ def standard_train_step(task):
         else contextlib.suppress()
     )
 
-    devices = list(range(8))
+    mem_debugging = False
+    if mem_debugging:
+        devices = list(range(8))
     with grad_context, ddp_context, torch_amp_context:
-        mem_in_mb = [torch.cuda.max_memory_allocated(d)//1024//1024 for d in devices]
-        print("XXX before fwd", mem_in_mb)
+        if mem_debugging:
+            mem_in_mb = [torch.cuda.max_memory_allocated(d)//1024//1024 for d in devices]
+            print("XXX before fwd", mem_in_mb)
 
         # Forward pass of the model
         with PerfTimer("forward", perf_stats):
@@ -121,8 +124,9 @@ def standard_train_step(task):
 
             model_output = task.model(sample["input"])
 
-        mem_in_mb = [torch.cuda.max_memory_allocated(d)//1024//1024 for d in devices]
-        print("XXX after fwd", mem_in_mb)
+        if mem_debugging:
+            mem_in_mb = [torch.cuda.max_memory_allocated(d)//1024//1024 for d in devices]
+            print("XXX after fwd", mem_in_mb)
 
         # If the model outputs only one tensor, we take it out of the list.
         if len(model_output) == 1:
@@ -138,8 +142,9 @@ def standard_train_step(task):
         with PerfTimer("loss_compute", perf_stats):
             local_loss = task.loss(model_output, target)
 
-        mem_in_mb = [torch.cuda.max_memory_allocated(d)//1024//1024 for d in devices]
-        print("XXX after loss", mem_in_mb)
+        if mem_debugging:
+            mem_in_mb = [torch.cuda.max_memory_allocated(d)//1024//1024 for d in devices]
+            print("XXX after loss", mem_in_mb)
 
         # Reduce the loss value across all nodes and gpus.
         with PerfTimer("loss_all_reduce", perf_stats):
@@ -190,8 +195,9 @@ def standard_train_step(task):
 
         task.run_hooks(SSLClassyHookFunctions.on_backward.name)
 
-        mem_in_mb = [torch.cuda.max_memory_allocated(d)//1024//1024 for d in devices]
-        print("XXX after backward", mem_in_mb)
+        if mem_debugging:
+            mem_in_mb = [torch.cuda.max_memory_allocated(d)//1024//1024 for d in devices]
+            print("XXX after backward", mem_in_mb)
 
         # Stepping the optimizer also updates learning rate, momentum etc
         # according to the schedulers (if any).
@@ -204,8 +210,9 @@ def standard_train_step(task):
         task.run_hooks(SSLClassyHookFunctions.on_update.name)
         task.num_updates += task.get_global_batchsize()
 
-        mem_in_mb = [torch.cuda.max_memory_allocated(d)//1024//1024 for d in devices]
-        print("XXX after stepping", mem_in_mb)
+        if mem_debugging:
+            mem_in_mb = [torch.cuda.max_memory_allocated(d)//1024//1024 for d in devices]
+            print("XXX after stepping", mem_in_mb)
 
     timer_train_step.stop()
     timer_train_step.record()
