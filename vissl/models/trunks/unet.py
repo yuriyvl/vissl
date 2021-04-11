@@ -8,6 +8,7 @@ LICENSE file in the root directory of this source tree.
 import torch
 from torch import nn
 from torch.nn import functional as F
+from vissl.config import AttrDict
 from vissl.models.trunks import register_model_trunk
 
 # Unet from FastMRI
@@ -24,11 +25,8 @@ class Unet(nn.Module):
 
     def __init__(
         self,
-        in_chans: int,
-        out_chans: int,
-        chans: int = 32,
-        num_pool_layers: int = 4,
-        drop_prob: float = 0.0,
+        model_config: AttrDict,
+        model_name: str,
     ):
         """
         Args:
@@ -40,30 +38,31 @@ class Unet(nn.Module):
         """
         super().__init__()
 
-        self.in_chans = in_chans
-        self.out_chans = out_chans
-        self.chans = chans
-        self.num_pool_layers = num_pool_layers
-        self.drop_prob = drop_prob
+        self.model_config = model_config
+        self.in_chans = self.model_config.IN_CHANNELS
+        self.out_chans = self.model_config.OUT_CHANNELS
+        self.chans = 32 if self.model_config.CHANNELS is None else self.model_config.CHANNELS
+        self.num_pool_layers = 4 if self.model_config.NUM_POOLS_LAYERS is None else self.movel_config.NUM_POOLS_LAYER
+        self.drop_prob = 0.0 if self.model_config.DROP_PROBABILITY is None else self.model_config.DROP_PROBABILITIY
 
-        self.down_sample_layers = nn.ModuleList([ConvBlock(in_chans, chans, drop_prob)])
-        ch = chans
-        for _ in range(num_pool_layers - 1):
-            self.down_sample_layers.append(ConvBlock(ch, ch * 2, drop_prob))
+        self.down_sample_layers = nn.ModuleList([ConvBlock(self.in_chans, self.chans, self.drop_prob)])
+        ch = self.chans
+        for _ in range(self.num_pool_layers - 1):
+            self.down_sample_layers.append(ConvBlock(ch, ch * 2, self.drop_prob))
             ch *= 2
-        self.conv = ConvBlock(ch, ch * 2, drop_prob)
+        self.conv = ConvBlock(ch, ch * 2, self.drop_prob)
 
         self.up_conv = nn.ModuleList()
         self.up_transpose_conv = nn.ModuleList()
-        for _ in range(num_pool_layers - 1):
+        for _ in range(self.num_pool_layers - 1):
             self.up_transpose_conv.append(TransposeConvBlock(ch * 2, ch))
-            self.up_conv.append(ConvBlock(ch * 2, ch, drop_prob))
+            self.up_conv.append(ConvBlock(ch * 2, ch, self.drop_prob))
             ch //= 2
 
         self.up_transpose_conv.append(TransposeConvBlock(ch * 2, ch))
         self.up_conv.append(
             nn.Sequential(
-                ConvBlock(ch * 2, ch, drop_prob),
+                ConvBlock(ch * 2, ch, self.drop_prob),
                 nn.Conv2d(ch, self.out_chans, kernel_size=1, stride=1),
             )
         )
