@@ -130,5 +130,9 @@
     "google-imagenet1k-per10": {
         "train": ["<img_path>", "<lbl_path>"],
         "val": ["<img_path>", "<lbl_path>"]
+    },
+    "dummy_data_folder": {
+        "train": ["dummy_data/train", "dummy_data/train"],
+        "val": ["dummy_data/val", "dummy_data/val"]
     }
 }
