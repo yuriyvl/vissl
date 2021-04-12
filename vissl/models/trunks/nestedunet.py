@@ -1,6 +1,8 @@
 import torch
 from torch import nn
+from typing import List, Tuple
 from vissl.config import AttrDict
+from vissl.models.model_helpers import Flatten, get_trunk_forward_outputs_module_list
 from vissl.models.model_helpers import (
     Flatten,
     get_trunk_forward_outputs,
@@ -28,51 +30,44 @@ class VGGBlock(nn.Module):
 
         return out
 
-
-# Unet++ from FastMRI
-@register_model_trunk("nestedunet")
-class NestedUnet(nn.Module):
-    def __init__(self, model_config: AttrDict, model_name: str):
+class NUBlock(nn.Module):
+    def __init__(self, in_chans, out_chans, deep_supervision=False, **kwargs):
         super().__init__()
-        self.model_config = model_config
-        trunk_config = model_config.TRUNK.TRUNK_PARAMS.NESTEDUNET
-        self.in_chans = trunk_config.IN_CHANNELS
-        self.out_chans = trunk_config.OUT_CHANNELS
-        self.deep_supervision = trunk_config.get("DEEP_SUPERVISION", False)
 
         nb_filter = [32, 64, 128, 256, 512]
 
-        self.pool = nn.MaxPool2d(2, 2)
-        self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
+        self.deep_supervision = deep_supervision
 
-        self.conv0_0 = VGGBlock(self.in_chans, nb_filter[0], nb_filter[0])
+        self.pool = nn.MaxPool2d(2, 2)
+        self.up = nn.Upsample(scale_factor = 2, mode = 'bilinear', align_corners = True)
+
+        self.conv0_0 = VGGBlock(in_chans, nb_filter[0], nb_filter[0])
         self.conv1_0 = VGGBlock(nb_filter[0], nb_filter[1], nb_filter[1])
         self.conv2_0 = VGGBlock(nb_filter[1], nb_filter[2], nb_filter[2])
         self.conv3_0 = VGGBlock(nb_filter[2], nb_filter[3], nb_filter[3])
         self.conv4_0 = VGGBlock(nb_filter[3], nb_filter[4], nb_filter[4])
 
-        self.conv0_1 = VGGBlock(nb_filter[0]+nb_filter[1], nb_filter[0], nb_filter[0])
-        self.conv1_1 = VGGBlock(nb_filter[1]+nb_filter[2], nb_filter[1], nb_filter[1])
-        self.conv2_1 = VGGBlock(nb_filter[2]+nb_filter[3], nb_filter[2], nb_filter[2])
-        self.conv3_1 = VGGBlock(nb_filter[3]+nb_filter[4], nb_filter[3], nb_filter[3])
+        self.conv0_1 = VGGBlock(nb_filter[0] + nb_filter[1], nb_filter[0], nb_filter[0])
+        self.conv1_1 = VGGBlock(nb_filter[1] + nb_filter[2], nb_filter[1], nb_filter[1])
+        self.conv2_1 = VGGBlock(nb_filter[2] + nb_filter[3], nb_filter[2], nb_filter[2])
+        self.conv3_1 = VGGBlock(nb_filter[3] + nb_filter[4], nb_filter[3], nb_filter[3])
 
-        self.conv0_2 = VGGBlock(nb_filter[0]*2+nb_filter[1], nb_filter[0], nb_filter[0])
-        self.conv1_2 = VGGBlock(nb_filter[1]*2+nb_filter[2], nb_filter[1], nb_filter[1])
-        self.conv2_2 = VGGBlock(nb_filter[2]*2+nb_filter[3], nb_filter[2], nb_filter[2])
+        self.conv0_2 = VGGBlock(nb_filter[0] * 2 + nb_filter[1], nb_filter[0], nb_filter[0])
+        self.conv1_2 = VGGBlock(nb_filter[1] * 2 + nb_filter[2], nb_filter[1], nb_filter[1])
+        self.conv2_2 = VGGBlock(nb_filter[2] * 2 + nb_filter[3], nb_filter[2], nb_filter[2])
 
-        self.conv0_3 = VGGBlock(nb_filter[0]*3+nb_filter[1], nb_filter[0], nb_filter[0])
-        self.conv1_3 = VGGBlock(nb_filter[1]*3+nb_filter[2], nb_filter[1], nb_filter[1])
+        self.conv0_3 = VGGBlock(nb_filter[0] * 3 + nb_filter[1], nb_filter[0], nb_filter[0])
+        self.conv1_3 = VGGBlock(nb_filter[1] * 3 + nb_filter[2], nb_filter[1], nb_filter[1])
 
-        self.conv0_4 = VGGBlock(nb_filter[0]*4+nb_filter[1], nb_filter[0], nb_filter[0])
+        self.conv0_4 = VGGBlock(nb_filter[0] * 4 + nb_filter[1], nb_filter[0], nb_filter[0])
 
         if self.deep_supervision:
-            self.final1 = nn.Conv2d(nb_filter[0], self.out_chans, kernel_size=1)
-            self.final2 = nn.Conv2d(nb_filter[0], self.out_chans, kernel_size=1)
-            self.final3 = nn.Conv2d(nb_filter[0], self.out_chans, kernel_size=1)
-            self.final4 = nn.Conv2d(nb_filter[0], self.out_chans, kernel_size=1)
+            self.final1 = nn.Conv2d(nb_filter[0], out_chans, kernel_size = 1)
+            self.final2 = nn.Conv2d(nb_filter[0], out_chans, kernel_size = 1)
+            self.final3 = nn.Conv2d(nb_filter[0], out_chans, kernel_size = 1)
+            self.final4 = nn.Conv2d(nb_filter[0], out_chans, kernel_size = 1)
         else:
-            self.final = nn.Conv2d(nb_filter[0], self.out_chans, kernel_size=1)
-
+            self.final = nn.Conv2d(nb_filter[0], out_chans, kernel_size = 1)
 
     def forward(self, input):
         x0_0 = self.conv0_0(input)
@@ -105,3 +100,46 @@ class NestedUnet(nn.Module):
         else:
             output = self.final(x0_4)
             return output
+
+
+# Unet++ from FastMRI
+@register_model_trunk("nestedunet")
+class NestedUnet(nn.Module):
+    def __init__(self, model_config: AttrDict, model_name: str):
+        super().__init__()
+        self.model_config = model_config
+        trunk_config = model_config.TRUNK.TRUNK_PARAMS.NESTEDUNET
+        self.in_chans = trunk_config.IN_CHANNELS
+        self.out_chans = trunk_config.OUT_CHANNELS
+        self.deep_supervision = trunk_config.get("DEEP_SUPERVISION", False)
+
+        self.nublock = NUBlock(self.in_chans, self.out_chans, self.deep_supervision)
+
+        self._feature_blocks = nn.ModuleList(
+            [
+                self.nublock,
+            ]
+        )
+        self.all_feat_names = [
+            "nublock",
+        ]
+        assert len(self.all_feat_names) == len(self._feature_blocks)
+
+        # give a name mapping to the layers so we can use a common terminology
+        # across models for feature evaluation purposes.
+        self.feat_eval_mapping = {
+            "nublock": "nublock",
+        }
+
+
+    def forward(self, input: torch.Tensor, out_feat_keys: List[str] = None) -> torch.Tensor:
+
+        feat = transform_model_input_data_type(input, self.model_config)
+
+        out_feats = get_trunk_forward_outputs_module_list(
+            feat,
+            out_feat_keys,
+            self._feature_blocks,
+            self.all_feat_names,
+        )
+        return out_feats
