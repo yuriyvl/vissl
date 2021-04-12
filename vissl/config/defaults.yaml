@@ -474,9 +474,13 @@ config:
       NAME: "resnet"
       # for any extra params that the model requires, pass them in the trunk_params
       TRUNK_PARAMS:
+        NESTEDUNET:
+          IN_CHANNELS: 3
+          OUT_CHANNELS: 3
+          DEEP_SUPERVISION: False
         UNET:
-          IN_CHANNELS: 2
-          OUT_CHANNELS: 2
+          IN_CHANNELS: 3
+          OUT_CHANNELS: 3
           CHANNELS: 32
           NUM_POOLS_LAYERS: 4
           DROP_PROBABILITY: 0.0
