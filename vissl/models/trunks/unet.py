@@ -39,12 +39,12 @@ class Unet(nn.Module):
         super().__init__()
 
         self.model_config = model_config
-        self.in_chans = self.model_config.IN_CHANNELS
-        self.out_chans = self.model_config.OUT_CHANNELS
-        self.chans = 32 if self.model_config.CHANNELS is None else self.model_config.CHANNELS
-        self.num_pool_layers = 4 if self.model_config.NUM_POOLS_LAYERS is None else self.movel_config.NUM_POOLS_LAYER
-        self.drop_prob = 0.0 if self.model_config.DROP_PROBABILITY is None else self.model_config.DROP_PROBABILITIY
-
+        trunk_config = model_config.TRUNK.TRUNK_PARAMS.UNET
+        self.in_chans = trunk_config.IN_CHANNELS
+        self.out_chans = trunk_config.OUT_CHANNELS
+        self.chans = trunk_config.get("CHANNELS", 32)
+        self.num_pool_layers = trunk_config.get("NUM_POOLS_LAYERS", 4)
+        self.drop_prob =  trunk_config.get("DROP_PROBABILITY", 0.0)
         self.down_sample_layers = nn.ModuleList([ConvBlock(self.in_chans, self.chans, self.drop_prob)])
         ch = self.chans
         for _ in range(self.num_pool_layers - 1):
