@@ -5,7 +5,7 @@ config:
   TEST_ONLY: False
   TEST_MODEL: False
   SEED_VALUE: 0
-  MULTI_PROCESSING_METHOD: spawn
+  MULTI_PROCESSING_METHOD: forkserver
   HOOKS:
     PERF_STATS:
       MONITOR_PERF_STATS: True

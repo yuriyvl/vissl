@@ -50,6 +50,14 @@ class Unet(nn.Module):
         self.chans = trunk_config.get("CHANNELS", 32)
         self.num_pool_layers = trunk_config.get("NUM_POOLS_LAYERS", 4)
         self.drop_prob =  trunk_config.get("DROP_PROBABILITY", 0.0)
+        
+        self.use_checkpointing = (
+            self.model_config.ACTIVATION_CHECKPOINTING.USE_ACTIVATION_CHECKPOINTING
+        )
+        self.num_checkpointing_splits = (
+            self.model_config.ACTIVATION_CHECKPOINTING.NUM_ACTIVATION_CHECKPOINTING_SPLITS
+        )
+        
         self.down_sample_layers = nn.ModuleList([ConvBlock(self.in_chans, self.chans, self.drop_prob)])
         ch = self.chans
         for _ in range(self.num_pool_layers - 1):
@@ -76,19 +84,21 @@ class Unet(nn.Module):
         # feature extraction at various layers of the model. The layers for which
         # to extract features is controlled by requested_feat_keys argument in the
         # forward() call.
-        self._feature_blocks = nn.ModuleDict()
+        feature_blocks_mapping = []
         for i in range(self.down_sample_layers.__len__()):
-            self._feature_blocks.append((f"downlayer{i+1}", self.down_sample_layers[i] ))
+            feature_blocks_mapping.append((f"downlayer{i+1}", self.down_sample_layers[i] ))
         
-        self._feature_blocks.append( ('conv', self.conv) )
+        feature_blocks_mapping.append( ('conv', self.conv) )
         
         for i in range(self.up_transpose_conv.__len__()):
-            self._feature_blocks.append((f"uptranconvlayer{i+1}", self.up_transpose_conv[i]))
+            feature_blocks_mapping.append((f"uptranconvlayer{i+1}", self.up_transpose_conv[i]))
         
         for i in range(self.up_conv.__len__()):
-            self._feature_blocks.append((f"upconvlayer{i+1}", self.up_conv[i]))
+            feature_blocks_mapping.append((f"upconvlayer{i+1}", self.up_conv[i]))
         
-        self._feature_blocks.append( ("flatten",Flatten(1)) )
+        feature_blocks_mapping.append( ("flatten",Flatten(1)) )
+        
+        self._feature_blocks = nn.ModuleDict(feature_blocks_mapping)
         
         # give a name mapping to the layers so we can use a common terminology
         # across models for feature evaluation purposes.
