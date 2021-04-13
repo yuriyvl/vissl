@@ -49,8 +49,12 @@ config:
     TRUNK:
       NAME: unet
       TRUNK_PARAMS:
-        RESNETS:
-          DEPTH: 50
+        UNET:
+          IN_CHANNELS: 3
+          OUT_CHANNELS: 3
+          CHANNELS: 32
+          NUM_POOLS_LAYERS: 4
+          DROP_PROBABILITY: 0.0
     MULTI_INPUT_HEAD_MAPPING: [
         # "flatten" is the res5->avg->flatten feature from ResNet50
         ["patches", ["flatten"]], # feature layer to extract from second input "patches"
