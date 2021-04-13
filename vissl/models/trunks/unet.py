@@ -45,11 +45,11 @@ class Unet(nn.Module):
 
         self.model_config = model_config
         trunk_config = model_config.TRUNK.TRUNK_PARAMS.UNET
-        self.in_chans = trunk_config.IN_CHANNELS
-        self.out_chans = trunk_config.OUT_CHANNELS
-        self.chans = trunk_config.get("CHANNELS", 32)
-        self.num_pool_layers = trunk_config.get("NUM_POOLS_LAYERS", 4)
-        self.drop_prob =  trunk_config.get("DROP_PROBABILITY", 0.0)
+        in_chans = trunk_config.IN_CHANNELS
+        out_chans = trunk_config.OUT_CHANNELS
+        chans = trunk_config.get("CHANNELS", 32)
+        num_pool_layers = trunk_config.get("NUM_POOLS_LAYERS", 4)
+        drop_prob =  trunk_config.get("DROP_PROBABILITY", 0.0)
         
         self.use_checkpointing = (
             self.model_config.ACTIVATION_CHECKPOINTING.USE_ACTIVATION_CHECKPOINTING
@@ -58,25 +58,25 @@ class Unet(nn.Module):
             self.model_config.ACTIVATION_CHECKPOINTING.NUM_ACTIVATION_CHECKPOINTING_SPLITS
         )
         
-        self.down_sample_layers = nn.ModuleList([ConvBlock(self.in_chans, self.chans, self.drop_prob)])
-        ch = self.chans
-        for _ in range(self.num_pool_layers - 1):
-            self.down_sample_layers.append(ConvBlock(ch, ch * 2, self.drop_prob))
+        down_sample_layers = nn.ModuleList([ConvBlock(in_chans, chans, drop_prob)])
+        ch = chans
+        for _ in range(num_pool_layers - 1):
+            down_sample_layers.append(ConvBlock(ch, ch * 2, drop_prob))
             ch *= 2
-        self.conv = ConvBlock(ch, ch * 2, self.drop_prob)
+        conv = ConvBlock(ch, ch * 2, drop_prob)
 
-        self.up_conv = nn.ModuleList()
-        self.up_transpose_conv = nn.ModuleList()
-        for _ in range(self.num_pool_layers - 1):
-            self.up_transpose_conv.append(TransposeConvBlock(ch * 2, ch))
-            self.up_conv.append(ConvBlock(ch * 2, ch, self.drop_prob))
+        up_conv = nn.ModuleList()
+        up_transpose_conv = nn.ModuleList()
+        for _ in range(num_pool_layers - 1):
+            up_transpose_conv.append(TransposeConvBlock(ch * 2, ch))
+            up_conv.append(ConvBlock(ch * 2, ch, drop_prob))
             ch //= 2
 
-        self.up_transpose_conv.append(TransposeConvBlock(ch * 2, ch))
-        self.up_conv.append(
+        up_transpose_conv.append(TransposeConvBlock(ch * 2, ch))
+        up_conv.append(
             nn.Sequential(
-                ConvBlock(ch * 2, ch, self.drop_prob),
-                nn.Conv2d(ch, self.out_chans, kernel_size=1, stride=1),
+                ConvBlock(ch * 2, ch, drop_prob),
+                nn.Conv2d(ch, out_chans, kernel_size=1, stride=1),
             )
         )
         
@@ -85,16 +85,16 @@ class Unet(nn.Module):
         # to extract features is controlled by requested_feat_keys argument in the
         # forward() call.
         feature_blocks_mapping = []
-        for i in range(self.down_sample_layers.__len__()):
-            feature_blocks_mapping.append((f"downlayer{i+1}", self.down_sample_layers[i] ))
+        for i in range(down_sample_layers.__len__()):
+            feature_blocks_mapping.append((f"downlayer{i+1}", down_sample_layers[i] ))
         
-        feature_blocks_mapping.append( ('conv', self.conv) )
+        feature_blocks_mapping.append( ('conv', conv) )
         
-        for i in range(self.up_transpose_conv.__len__()):
-            feature_blocks_mapping.append((f"uptranconvlayer{i+1}", self.up_transpose_conv[i]))
+        for i in range(up_transpose_conv.__len__()):
+            feature_blocks_mapping.append((f"uptranconvlayer{i+1}", up_transpose_conv[i]))
         
-        for i in range(self.up_conv.__len__()):
-            feature_blocks_mapping.append((f"upconvlayer{i+1}", self.up_conv[i]))
+        for i in range(up_conv.__len__()):
+            feature_blocks_mapping.append((f"upconvlayer{i+1}", up_conv[i]))
         
         feature_blocks_mapping.append( ("flatten",Flatten(1)) )
         
