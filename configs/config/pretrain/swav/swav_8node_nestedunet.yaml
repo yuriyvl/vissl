@@ -19,9 +19,9 @@ config:
       LABEL_TYPE: sample_index    # just an implementation detail. Label isn't used
       TRANSFORMS:
         - name: ImgPilToMultiCrop
-          total_num_crops: 4
-          size_crops: [16, 16]
-          num_crops: [2, 2]
+          total_num_crops: 8
+          size_crops: [48, 48]
+          num_crops: [2, 6]
           crop_scales: [[0.14, 1], [0.05, 0.14]]
         - name: RandomHorizontalFlip
           p: 0.5
@@ -52,7 +52,7 @@ config:
           DEPTH: 50
     HEAD:
       PARAMS: [
-        ["swav_head", {"dims": [768, 768, 128], "use_bn": True, "num_clusters": [3000]}],
+        ["swav_head", {"dims": [6912, 6912, 128], "use_bn": True, "num_clusters": [3000]}],
       ]
     TEMP_FROZEN_PARAMS_ITER_MAP: [
       ['module.heads.0.prototypes0.weight', 313],
@@ -132,3 +132,4 @@ config:
     AUTO_RESUME: True
     CHECKPOINT_FREQUENCY: 5           # every phase since data is big
     CHECKPOINT_ITER_FREQUENCY: -1    # equals 1epoch of imagenet-1k
+    OVERWRITE_EXISTING: true
