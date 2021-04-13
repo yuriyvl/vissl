@@ -11,7 +11,7 @@ config:
       MONITOR_PERF_STATS: True
       ROLLING_BTIME_FREQ: 313
   DATA:
-    NUM_DATALOADER_WORKERS: 8
+    NUM_DATALOADER_WORKERS: 1
     TRAIN:
       DATA_SOURCES: [disk_folder]
       DATASET_NAMES: [imagenet1k_folder]
@@ -19,9 +19,9 @@ config:
       LABEL_TYPE: sample_index    # just an implementation detail. Label isn't used
       TRANSFORMS:
         - name: ImgPilToMultiCrop
-          total_num_crops: 8
-          size_crops: [224, 96]
-          num_crops: [2, 6]
+          total_num_crops: 4
+          size_crops: [16, 16]
+          num_crops: [2, 2]
           crop_scales: [[0.14, 1], [0.05, 0.14]]
         - name: RandomHorizontalFlip
           p: 0.5
@@ -52,7 +52,7 @@ config:
           DEPTH: 50
     HEAD:
       PARAMS: [
-        ["swav_head", {"dims": [2048, 2048, 128], "use_bn": True, "num_clusters": [3000]}],
+        ["swav_head", {"dims": [768, 768, 128], "use_bn": True, "num_clusters": [3000]}],
       ]
     TEMP_FROZEN_PARAMS_ITER_MAP: [
       ['module.heads.0.prototypes0.weight', 313],
