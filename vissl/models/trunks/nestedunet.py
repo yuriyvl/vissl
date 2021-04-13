@@ -112,18 +112,14 @@ class NestedUnet(nn.Module):
         self.in_chans = trunk_config.IN_CHANNELS
         self.out_chans = trunk_config.OUT_CHANNELS
         self.deep_supervision = trunk_config.get("DEEP_SUPERVISION", False)
+        self.use_checkpointing = (
+            self.model_config.ACTIVATION_CHECKPOINTING.USE_ACTIVATION_CHECKPOINTING
+        )
+        self.num_checkpointing_splits = (
+            self.model_config.ACTIVATION_CHECKPOINTING.NUM_ACTIVATION_CHECKPOINTING_SPLITS
+        )
 
         self.nublock = NUBlock(self.in_chans, self.out_chans, self.deep_supervision)
-
-        self._feature_blocks = nn.ModuleList(
-            [
-                self.nublock,
-            ]
-        )
-        self.all_feat_names = [
-            "nublock",
-        ]
-        assert len(self.all_feat_names) == len(self._feature_blocks)
 
         # give a name mapping to the layers so we can use a common terminology
         # across models for feature evaluation purposes.
@@ -131,15 +127,35 @@ class NestedUnet(nn.Module):
             "nublock": "nublock",
         }
 
+        # we mapped the layers of resnet model into feature blocks to facilitate
+        # feature extraction at various layers of the model. The layers for which
+        # to extract features is controlled by requested_feat_keys argument in the
+        # forward() call.
+        self._feature_blocks = nn.ModuleDict(
+            [
+                ("nublock", self.nublock),
+                ("flatten", Flatten(1)),
+            ]
+        )
+
+        # give a name mapping to the layers so we can use a common terminology
+        # across models for feature evaluation purposes.
+        self.feat_eval_mapping = {
+            "nublock": "nublock",
+            "flatten": "flatten",
+        }
+
 
     def forward(self, input: torch.Tensor, out_feat_keys: List[str] = None) -> torch.Tensor:
 
         feat = transform_model_input_data_type(input, self.model_config)
 
-        out_feats = get_trunk_forward_outputs_module_list(
+        out_feats = get_trunk_forward_outputs(
             feat,
-            out_feat_keys,
-            self._feature_blocks,
-            self.all_feat_names,
+            out_feat_keys=out_feat_keys,
+            feature_blocks=self._feature_blocks,
+            feature_mapping=self.feat_eval_mapping,
+            use_checkpointing=self.use_checkpointing,
+            checkpointing_splits=self.num_checkpointing_splits,
         )
         return out_feats
